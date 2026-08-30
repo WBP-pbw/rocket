@@ -1,4 +1,5 @@
 ﻿
+#include <fstream>
 #include <cstddef>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -140,88 +141,131 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    std::string inputfile = "models\\ROCKET.obj";
+    std::string inputfile = "models\\main.obj";
+
+    std::ifstream testFile(inputfile);
+
+    if (!testFile.is_open())
+    {
+        std::cout << "FILE DOES NOT EXIST: "
+            << inputfile
+            << std::endl;
+        return -1;
+    }
+
+    std::cout << "FILE EXISTS!" << std::endl;
 
     tinyobj::ObjReader reader;
 
+
     if (!reader.ParseFromFile(inputfile))
     {
-        std::cout << "Failed to load OBJ: "
+        std::cout << "Failed to load OBJ:\n "
             << reader.Error()
             << std::endl;
 
         return -1;
     }
-
+    
     const auto& attrib = reader.GetAttrib();
     const auto& shapes = reader.GetShapes();
-    const auto& mesh = shapes[0].mesh;
 
-    std::cout << "Faces: "
-        << mesh.num_face_vertices.size()
-        << '\n';
 
-    for (size_t i = 0; i < mesh.num_face_vertices.size() && i < 20; ++i)
-    {
-        std::cout << "Face " << i
-            << ": "
-            << static_cast<int>(mesh.num_face_vertices[i])
-            << " vertices"
-            << '\n';
+    std::cout << "Shapes: " << shapes.size() << endl;
+    if (shapes.empty()) {
+        std::cout << "OBJ contains no shapes!" << std::endl;
+        return -1;
     }
-
-    std::cout << "Index count: "
-        << mesh.indices.size()
-        << '\n';
-
-    for (size_t i = 0; i < mesh.indices.size() && i < 10; ++i)
-    {
-        std::cout << "Index " << i
+    for (size_t i = 0; i < shapes.size(); ++i) {
+        std::cout << "Shape " << i
             << ": "
-            << mesh.indices[i].vertex_index
+            << shapes[i].name
+            << ", indices = "
+            << shapes[i].mesh.indices.size()
             << '\n';
     }
    
     // Наш массив
     std::vector<Vertex> vertices;
 
-    for (size_t i = 0; i < mesh.indices.size(); ++i) {
-        const auto& index = mesh.indices[i];
-        
-        Vertex vertex;
+    for (const auto& shape : shapes) {
+        const auto& mesh = shape.mesh;
+        size_t indexOffset = 0;
 
-        vertex.position = glm::vec3(
-            attrib.vertices[index.vertex_index * 3 + 0],
-            attrib.vertices[index.vertex_index * 3 + 1],
-            attrib.vertices[index.vertex_index * 3 + 2]
-        );
+        for (size_t face = 0; face < mesh.num_face_vertices.size(); ++face) {
+            int vertexCount = mesh.num_face_vertices[face];
+            const auto& index0 = mesh.indices[indexOffset];
 
-            if (index.normal_index >= 0)
-            {
-                vertex.normal = glm::vec3(
-                    attrib.normals[index.normal_index * 3 + 0],
-                    attrib.normals[index.normal_index * 3 + 1],
-                    attrib.normals[index.normal_index * 3 + 2]
+            for (int i = 1; i < vertexCount - 1; ++i) {
+                const auto& index1 = mesh.indices[indexOffset + i];
+                const auto& index2 = mesh.indices[indexOffset + i + 1];
+
+                Vertex vertex0;
+                Vertex vertex1;
+                Vertex vertex2;
+
+                // Первая вершина
+
+                vertex0.position = glm::vec3(
+                    attrib.vertices[index0.vertex_index * 3 + 0],
+                    attrib.vertices[index0.vertex_index * 3 + 1],
+                    attrib.vertices[index0.vertex_index * 3 + 2]
                 );
+                if (index0.normal_index >= 0) {
+                    vertex0.normal = glm::vec3(
+                        attrib.normals[index0.normal_index * 3 + 0],
+                        attrib.normals[index0.normal_index * 3 + 1],
+                        attrib.normals[index0.normal_index * 3 + 2]
+                    );
+                }
+                else {
+                    vertex0.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+                }
+
+                // Вторая вершина
+
+                vertex1.position = glm::vec3(
+                    attrib.vertices[index1.vertex_index * 3 + 0],
+                    attrib.vertices[index1.vertex_index * 3 + 1],
+                    attrib.vertices[index1.vertex_index * 3 + 2]
+                );
+                if (index1.normal_index >= 0) {
+                    vertex1.normal = glm::vec3(
+                        attrib.normals[index1.normal_index * 3 + 0],
+                        attrib.normals[index1.normal_index * 3 + 1],
+                        attrib.normals[index1.normal_index * 3 + 2]
+                    );
+                }
+                else {
+                    vertex1.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+                }
+
+                //третья вершина
+
+                vertex2.position = glm::vec3(
+                    attrib.vertices[index2.vertex_index * 3 + 0],
+                    attrib.vertices[index2.vertex_index * 3 + 1],
+                    attrib.vertices[index2.vertex_index * 3 + 2]
+                );
+                if (index2.normal_index >= 0) {
+                    vertex2.normal = glm::vec3(
+                        attrib.normals[index2.normal_index * 3 + 0],
+                        attrib.normals[index2.normal_index * 3 + 1],
+                        attrib.normals[index2.normal_index * 3 + 2]
+                    );
+                }
+                else {
+                    vertex2.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+                }
+                vertices.push_back(vertex0);
+                vertices.push_back(vertex1);
+                vertices.push_back(vertex2);
             }
-        vertices.push_back(vertex);
+
+            indexOffset += vertexCount;
+        }
     }
 
-    std::cout << "Faces: "
-        << mesh.num_face_vertices.size()
-        << '\n';
-
-    std::cout << "Prepared vertices: "
-        << vertices.size()
-        << '\n';
-
-    std::cout << "Prepared triangles: "
-        << vertices.size() / 3
-        << '\n';
-
-    std::cout << "Prepared vertex count: "
-        << vertices.size() / 3
-        << '\n';
 
     // Статус для ракеты
     RocketState Rstate = { 0.0f, 10.0f, 0.0f, 0.0f, false, false, EngineState::On};
